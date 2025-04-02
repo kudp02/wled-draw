@@ -1,31 +1,31 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from "vue";
 import { Cog, X, Copy, Check, Save } from "lucide-vue-next";
 
-const props = defineProps({
-  apiUrl: {
-    type: String,
-    default: "",
-  },
-  gridWidth: {
-    type: Number,
-    default: 16,
-  },
-  gridHeight: {
-    type: Number,
-    default: 16,
-  },
-  // wledJson: {
-  //   type: String,
-  //   required: true,
-  // },
+interface SettingsProps {
+  apiUrl: string;
+  gridWidth: number;
+  gridHeight: number;
+  debounceDelay: number;
+  wledJson: string;
+}
+
+// Define emits with TypeScript type
+type SettingsEmits = {
+  "update:apiUrl": [value: string];
+  "update:gridWidth": [value: number];
+  "update:gridHeight": [value: number];
+  "update:debounceDelay": [value: number];
+};
+
+const props = withDefaults(defineProps<SettingsProps>(), {
+  apiUrl: "",
+  gridWidth: 16,
+  gridHeight: 16,
+  debounceDelay: 100,
 });
 
-const emit = defineEmits([
-  "update:apiUrl",
-  "update:gridWidth",
-  "update:gridHeight",
-]);
+const emit = defineEmits<SettingsEmits>();
 
 // Local state
 const isModalOpen = ref(false);
@@ -34,20 +34,23 @@ const copyFailed = ref(false);
 const apiUrl = ref(props.apiUrl);
 const gridWidth = ref(props.gridWidth);
 const gridHeight = ref(props.gridHeight);
-const jsonDisplay = ref(null);
-const modalRef = ref(null);
-const triggerRef = ref(null);
+const debounceDelay = ref(props.debounceDelay);
+const jsonDisplay = ref<HTMLPreElement | null>(null);
+const modalRef = ref<HTMLDialogElement | null>(null);
+const triggerRef = ref<HTMLButtonElement | null>(null);
 
 // Trap focus within the modal
-function trapFocus(event) {
+function trapFocus(event: KeyboardEvent): void {
   if (!isModalOpen.value || !modalRef.value) return;
 
   const focusableElements = modalRef.value.querySelectorAll(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
   );
 
-  const firstElement = focusableElements[0];
-  const lastElement = focusableElements[focusableElements.length - 1];
+  const firstElement = focusableElements[0] as HTMLElement;
+  const lastElement = focusableElements[
+    focusableElements.length - 1
+  ] as HTMLElement;
 
   // If shift + tab pressed and focus is on first element, move to last
   if (event.shiftKey && document.activeElement === firstElement) {
@@ -62,7 +65,7 @@ function trapFocus(event) {
 }
 
 // Modal control methods
-function openModal() {
+function openModal(): void {
   isModalOpen.value = true;
 
   // Add event listeners for accessibility
@@ -74,7 +77,7 @@ function openModal() {
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
     if (focusableElements && focusableElements.length > 0) {
-      focusableElements[0].focus();
+      (focusableElements[0] as HTMLElement).focus();
     }
 
     // Set aria-hidden on all elements outside the modal
@@ -86,7 +89,7 @@ function openModal() {
   }, 50);
 }
 
-function closeModal() {
+function closeModal(): void {
   isModalOpen.value = false;
   document.removeEventListener("keydown", handleKeyDown);
 
@@ -101,7 +104,7 @@ function closeModal() {
   });
 }
 
-function handleKeyDown(e) {
+function handleKeyDown(e: KeyboardEvent): void {
   // Handle Escape key
   if (e.key === "Escape") {
     closeModal();
@@ -122,14 +125,15 @@ onBeforeUnmount(() => {
 });
 
 // Update methods
-function saveSettings() {
+function saveSettings(): void {
   emit("update:apiUrl", apiUrl.value);
-  emit("update:gridWidth", parseInt(gridWidth.value));
-  emit("update:gridHeight", parseInt(gridHeight.value));
+  emit("update:gridWidth", parseInt(gridWidth.value.toString()));
+  emit("update:gridHeight", parseInt(gridHeight.value.toString()));
+  emit("update:debounceDelay", parseInt(debounceDelay.value.toString()));
   closeModal();
 }
 
-function copyPreset() {
+function copyPreset(): void {
   if (!jsonDisplay.value) return;
 
   const textToCopy = jsonDisplay.value.innerText;
@@ -186,6 +190,13 @@ watch(
   () => props.gridHeight,
   (newValue) => {
     gridHeight.value = newValue;
+  }
+);
+
+watch(
+  () => props.debounceDelay,
+  (newValue) => {
+    debounceDelay.value = newValue;
   }
 );
 </script>
@@ -319,6 +330,36 @@ watch(
             </div>
           </fieldset>
 
+          <!-- Debounce Delay Setting -->
+          <div class="space-y-2">
+            <label
+              for="debounce-delay"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Update Delay (ms)
+            </label>
+            <div class="mt-1 flex rounded-md shadow-sm">
+              <input
+                type="number"
+                id="debounce-delay"
+                v-model.number="debounceDelay"
+                min="0"
+                max="1000"
+                step="10"
+                inputmode="numeric"
+                class="w-full py-2 px-3 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                aria-describedby="debounce-description"
+              />
+            </div>
+            <p
+              id="debounce-description"
+              class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+            >
+              Delay between WLED updates (0-1000ms). Lower values provide faster
+              updates but may cause more network traffic.
+            </p>
+          </div>
+
           <!-- JSON Preview -->
           <section class="space-y-2" aria-labelledby="json-title">
             <div class="flex items-center justify-between">
@@ -347,9 +388,9 @@ watch(
                 aria-label="JSON preset code"
                 tabindex="0"
               >
-                test
-                <!-- {{ wledJson }} -->
-                </pre>
+                {{ wledJson }}
+                </pre
+              >
             </div>
             <p
               v-if="copyFailed"

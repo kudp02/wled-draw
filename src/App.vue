@@ -10,7 +10,7 @@ import { useWledDraw } from "./composables/useWledDraw";
 import { ArrowLeft } from "lucide-vue-next";
 import { ref } from "vue";
 
-// Initialize WLED drawing functionality
+// Initialize WLED drawing functionality with the enhanced composable
 const {
   // State properties
   apiUrl,
@@ -24,10 +24,14 @@ const {
   loading,
   error,
   wledJson,
+  debounceDelay,
 
   // Core methods
   updatePixel,
-  sendToWled,
+  batchUpdatePixels, // New batch update method
+  applyPixelArray, // New method for applying full pixel arrays
+  debouncedSendToWled, // Debounced API updates
+  flushChanges, // Method to force immediate update
   undo,
   clearScreen,
   ignoreApiAndContinue,
@@ -47,43 +51,36 @@ const isSettingsOpen = ref(false);
  */
 function handleUpdatePixel(index: number, color: string) {
   updatePixel(index, color);
+  // No need to call debouncedSendToWled here - it's handled by updatePixel
 }
 
 /**
- * Handle draw complete event - send updated data to WLED
+ * Handle batch pixel updates (for brush with size > 1)
+ * @param indices - Array of pixel indices to update
+ * @param color - Color to apply to all pixels
  */
-const handleDrawComplete = () => sendToWled();
-
-/**
- * Apply a gradient to the canvas
- * @param gradientData - Array of colors for each pixel in the gradient
- */
-function applyGradient(gradientData: string[]) {
-  // Apply each pixel of the gradient
-  gradientData.forEach((color, index) => {
-    if (index < pixelData.value.length) {
-      updatePixel(index, color);
-    }
-  });
-
-  // Send the updated data to WLED
-  sendToWled();
+function handleBatchUpdatePixels(indices: number[], color: string) {
+  batchUpdatePixels(indices, color);
 }
 
 /**
- * Apply image pixels to the canvas
- * @param imagePixelData - Array of colors from the processed image
+ * Handle draw complete event - flush any pending changes
+ */
+const handleDrawComplete = () => flushChanges();
+
+/**
+ * Apply a gradient to the canvas - direct connection to applyPixelArray
+ * We'll pass this function to the GradientGenerator component
+ */
+function handleGradientUpdate(gradientData: string[]) {
+  applyPixelArray(gradientData);
+}
+
+/**
+ * Apply image pixels to the canvas - direct connection to applyPixelArray
  */
 function applyImageToCanvas(imagePixelData: string[]) {
-  // Apply each pixel from the image
-  imagePixelData.forEach((color, index) => {
-    if (index < pixelData.value.length) {
-      updatePixel(index, color);
-    }
-  });
-
-  // Send the updated data to WLED
-  sendToWled();
+  applyPixelArray(imagePixelData);
 }
 
 /**
@@ -133,7 +130,7 @@ function handleBrushSizeChange(size: number) {
           :pixel-data="pixelData"
           :grid-width="gridWidth"
           :grid-height="gridHeight"
-          @apply-gradient="applyGradient"
+          :apply-pixel-array="handleGradientUpdate"
         />
 
         <!-- Image Uploader Section -->
@@ -203,6 +200,7 @@ function handleBrushSizeChange(size: number) {
             v-model:api-url="apiUrl"
             v-model:grid-width="gridWidth"
             v-model:grid-height="gridHeight"
+            v-model:debounce-delay="debounceDelay"
             :wled-json="wledJson"
             class="flex-shrink-0"
             @update:apiUrl="isSettingsOpen = false"
@@ -221,6 +219,7 @@ function handleBrushSizeChange(size: number) {
         :current-tool="currentTool"
         :brush-size="brushSize"
         @update-pixel="handleUpdatePixel"
+        @batch-update-pixels="handleBatchUpdatePixels"
         @draw-complete="handleDrawComplete"
       />
     </main>

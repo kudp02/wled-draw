@@ -45,6 +45,12 @@ export function useWledDraw() {
   const history = ref<HistoryAction[]>([]);
   const maxHistoryLength = 50; // Limit history size to avoid memory issues
 
+  // ===== DEBOUNCE FUNCTIONALITY =====
+  const debounceDelay = ref(100); // Debounce delay in milliseconds (default 100ms)
+  let debounceTimer: number | null = null; // Timer for debouncing
+  const isUpdatePending = ref(false); // Flag to track pending updates
+  const pixelDataChanged = ref(false); // Flag to track if pixel data has changed
+
   // ===== COMPUTED VALUES FOR WLED API =====
   // Format JSON payload for sending to WLED API
   const wledJson = computed(() => {
@@ -103,7 +109,8 @@ export function useWledDraw() {
 
     // Save pixel data and update WLED
     saveToLocalStorage();
-    sendToWled();
+    pixelDataChanged.value = true;
+    debouncedSendToWled();
   }
 
   // Clear the screen (set all pixels to black)
@@ -119,7 +126,8 @@ export function useWledDraw() {
 
     // Save to localStorage and update WLED
     saveToLocalStorage();
-    sendToWled();
+    pixelDataChanged.value = true;
+    debouncedSendToWled();
   }
 
   // Initialize or reset the drawing grid
@@ -146,6 +154,18 @@ export function useWledDraw() {
 
     // Load history from localStorage
     loadHistoryFromStorage();
+
+    // Load debounce delay from localStorage
+    if (localStorage.debounceDelay) {
+      try {
+        const delay = Number(localStorage.debounceDelay);
+        if (!isNaN(delay) && delay >= 0) {
+          debounceDelay.value = delay;
+        }
+      } catch (e) {
+        console.error("Error loading debounce delay from localStorage:", e);
+      }
+    }
   }
 
   // Update a single pixel with a new color
@@ -162,13 +182,14 @@ export function useWledDraw() {
 
     // Update the pixel
     pixelData.value[index] = newColor;
+    pixelDataChanged.value = true;
 
     // Save to localStorage
     saveToLocalStorage();
   }
 
-  // Send the current pixel data to the WLED device
-  function sendToWled(): void {
+  // Immediate send to WLED (without debounce)
+  function sendToWledImmediate(): void {
     if (ignoreApi.value) return;
 
     fetch(apiUrl.value, {
@@ -179,14 +200,115 @@ export function useWledDraw() {
       },
     })
       .then((response) => response.json())
-      .then((data) => {
-        // Success - nothing specific to do
+      .then(() => {
+        // Success - reset flags
+        pixelDataChanged.value = false;
       })
       .catch((error) => {
         console.error("WLED API Error:", error);
         error.value = true;
       });
   }
+
+  // Enhanced debounced version of sendToWled
+  function debouncedSendToWled(): void {
+    if (ignoreApi.value) return;
+
+    // Set the change flag to ensure we send an update
+    pixelDataChanged.value = true;
+
+    // If there's already a timer running, don't set a new one
+    if (debounceTimer !== null) {
+      return;
+    }
+
+    // Start a new timer
+    debounceTimer = window.setTimeout(() => {
+      // Only send if there are actual changes to send
+      if (pixelDataChanged.value) {
+        // Mark that we're processing this update
+        isUpdatePending.value = true;
+
+        // Use requestAnimationFrame to sync with the browser's render cycle
+        requestAnimationFrame(() => {
+          sendToWledImmediate();
+          isUpdatePending.value = false;
+          debounceTimer = null;
+        });
+      } else {
+        // Reset the timer if no changes
+        debounceTimer = null;
+      }
+    }, debounceDelay.value);
+  }
+
+  // Batch update multiple pixels at once
+  function batchUpdatePixels(indices: number[], newColor: string): void {
+    // Update each pixel
+    indices.forEach((index) => {
+      if (
+        index >= 0 &&
+        index < pixelData.value.length &&
+        pixelData.value[index] !== newColor
+      ) {
+        // Save to history individually for proper undo
+        saveToHistory({
+          type: "draw",
+          index,
+          color: pixelData.value[index],
+        });
+
+        // Update the pixel
+        pixelData.value[index] = newColor;
+      }
+    });
+
+    // Flag that changes were made
+    pixelDataChanged.value = true;
+
+    // Save once for all changes
+    saveToLocalStorage();
+
+    // Schedule a debounced update
+    debouncedSendToWled();
+  }
+
+  // Apply an entire array of pixels (for gradients, images, etc.)
+  function applyPixelArray(newPixels: string[]): void {
+    if (!newPixels.length || newPixels.length !== pixelData.value.length) {
+      console.error("Invalid pixel array length");
+      return;
+    }
+
+    // Save current state to history
+    saveToHistory({
+      type: "clear",
+      pixels: [...pixelData.value],
+    });
+
+    // Update all pixels
+    pixelData.value = [...newPixels];
+    pixelDataChanged.value = true;
+
+    // Save and schedule update
+    saveToLocalStorage();
+    debouncedSendToWled();
+  }
+
+  // Force send all pending changes immediately
+  function flushChanges(): void {
+    if (debounceTimer !== null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+
+    if (pixelDataChanged.value) {
+      sendToWledImmediate();
+    }
+  }
+
+  // For backward compatibility (alias to debouncedSendToWled)
+  const sendToWled = debouncedSendToWled;
 
   // Fetch information from the WLED device
   function fetchWledInfo(): void {
@@ -244,6 +366,7 @@ export function useWledDraw() {
     localStorage.colorPalette = colorPalette.value.toString();
     localStorage.gridWidth = gridWidth.value;
     localStorage.gridHeight = gridHeight.value;
+    localStorage.debounceDelay = debounceDelay.value;
     // Note: History is saved separately to avoid circular calls
   }
 
@@ -275,6 +398,17 @@ export function useWledDraw() {
 
     if (localStorage.gridHeight) {
       gridHeight.value = Number(localStorage.gridHeight);
+    }
+
+    if (localStorage.debounceDelay) {
+      try {
+        const delay = Number(localStorage.debounceDelay);
+        if (!isNaN(delay) && delay >= 0) {
+          debounceDelay.value = delay;
+        }
+      } catch (e) {
+        console.error("Error loading debounce delay from localStorage:", e);
+      }
     }
   }
 
@@ -321,6 +455,11 @@ export function useWledDraw() {
     fetchWledInfo();
   });
 
+  // Watch for changes to debounce delay and save it
+  watch(debounceDelay, (newDelay) => {
+    localStorage.debounceDelay = newDelay;
+  });
+
   // Initialize on component mount
   onMounted(() => {
     initialize();
@@ -341,10 +480,16 @@ export function useWledDraw() {
     error,
     ignoreApi,
     wledJson,
+    debounceDelay,
 
     // Methods
     updatePixel,
-    sendToWled,
+    batchUpdatePixels,
+    applyPixelArray,
+    sendToWled: debouncedSendToWled,
+    sendToWledImmediate,
+    debouncedSendToWled,
+    flushChanges,
     undo,
     clearScreen,
     ignoreApiAndContinue,

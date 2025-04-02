@@ -11,6 +11,7 @@ interface GradientGeneratorProps {
   pixelData: string[];
   gridWidth: number;
   gridHeight: number;
+  applyPixelArray?: (pixels: string[]) => void; // New prop for the applyPixelArray function
 }
 
 const props = defineProps<GradientGeneratorProps>();
@@ -31,11 +32,6 @@ const colorStops = ref<ColorStop[]>([
   { color: "#FF3300", position: 9 },
   { color: "#FFB005", position: 24 },
 ]);
-
-// Debounce handling
-let debounceTimer: number | null = null;
-let lastUpdateTime = 0;
-const debounceDelay = 100; // Increased to 100ms to reduce update frequency
 
 // Local storage keys
 const STORAGE_KEY_PREFIX = "wled_gradient_";
@@ -458,7 +454,7 @@ function addColorStop() {
   saveToLocalStorage();
 
   // Trigger debounced update
-  debouncedApplyGradient();
+  applyGradient();
 }
 
 function removeColorStop(index: number) {
@@ -468,7 +464,7 @@ function removeColorStop(index: number) {
   saveToLocalStorage();
 
   // Trigger debounced update
-  debouncedApplyGradient();
+  applyGradient();
 }
 
 function updateStopColor(index: number, color: string) {
@@ -480,7 +476,7 @@ function updateStopColor(index: number, color: string) {
   saveToLocalStorage();
 
   // Trigger debounced update immediately for color changes
-  debouncedApplyGradient();
+  applyGradient();
 }
 
 function updateStopPosition(index: number, position: number) {
@@ -492,7 +488,7 @@ function updateStopPosition(index: number, position: number) {
   saveToLocalStorage();
 
   // Trigger debounced update immediately for position changes
-  debouncedApplyGradient();
+  applyGradient();
 }
 
 // Use throttle for slider updates to improve performance
@@ -523,7 +519,7 @@ function updateCustomAngle(angle: number) {
   throttle(
     () => {
       saveToLocalStorage();
-      debouncedApplyGradient();
+      applyGradient();
     },
     "angle",
     50
@@ -536,7 +532,7 @@ function updateCenterX(x: number) {
   throttle(
     () => {
       saveToLocalStorage();
-      debouncedApplyGradient();
+      applyGradient();
     },
     "centerX",
     50
@@ -549,7 +545,7 @@ function updateCenterY(y: number) {
   throttle(
     () => {
       saveToLocalStorage();
-      debouncedApplyGradient();
+      applyGradient();
     },
     "centerY",
     50
@@ -562,7 +558,7 @@ function updateEllipticalRotation(rotation: number) {
   throttle(
     () => {
       saveToLocalStorage();
-      debouncedApplyGradient();
+      applyGradient();
     },
     "rotation",
     50
@@ -575,7 +571,7 @@ function updateScale(scale: number) {
   throttle(
     () => {
       saveToLocalStorage();
-      debouncedApplyGradient();
+      applyGradient();
     },
     "scale",
     50
@@ -587,7 +583,7 @@ function resetTransform() {
 
   saveToLocalStorage();
   colorCache.clear();
-  debouncedApplyGradient();
+  applyGradient();
 }
 
 function toggleExpandedState() {
@@ -598,56 +594,12 @@ function toggleExpandedState() {
 // Keep track of pending updates to avoid excessive recalculations
 let isUpdatePending = false;
 
-// Debounced version of apply gradient
-function debouncedApplyGradient() {
-  const currentTime = Date.now();
-  const timeSinceLastUpdate = currentTime - lastUpdateTime;
+function applyGradient() {
+  const pixels = calculateOptimizedPixels(props.gridWidth, props.gridHeight);
 
-  // Clear any existing timer
-  if (debounceTimer !== null) {
-    clearTimeout(debounceTimer);
-    debounceTimer = null;
-  }
-
-  // If it's been long enough since the last update and no update is pending, apply immediately
-  if (timeSinceLastUpdate >= debounceDelay && !isUpdatePending) {
-    isUpdatePending = true;
-    // Use requestAnimationFrame to sync with the browser's render cycle
-    requestAnimationFrame(() => {
-      const pixels = calculateOptimizedPixels(
-        props.gridWidth,
-        props.gridHeight
-      );
-      applyGradientNow(pixels);
-      isUpdatePending = false;
-    });
-  } else {
-    // Otherwise schedule an update for when the delay has passed
-    const timeToWait = debounceDelay - timeSinceLastUpdate;
-    debounceTimer = window.setTimeout(() => {
-      if (!isUpdatePending) {
-        isUpdatePending = true;
-        requestAnimationFrame(() => {
-          const pixels = calculateOptimizedPixels(
-            props.gridWidth,
-            props.gridHeight
-          );
-          applyGradientNow(pixels);
-          isUpdatePending = false;
-        });
-      }
-    }, timeToWait);
-  }
-}
-
-// Apply immediately without debounce
-function applyGradientNow(pixels = gradientPixels.value) {
-  emit("apply-gradient", pixels);
-  lastUpdateTime = Date.now();
-
-  if (debounceTimer !== null) {
-    clearTimeout(debounceTimer);
-    debounceTimer = null;
+  // Use the provided function if available, otherwise do nothing
+  if (props.applyPixelArray) {
+    props.applyPixelArray(pixels);
   }
 }
 
@@ -655,7 +607,7 @@ function applyGradientNow(pixels = gradientPixels.value) {
 watch(gradientType, () => {
   // For type changes only, we'll update storage but debounce the pixel calculation
   saveToLocalStorage();
-  debouncedApplyGradient();
+  applyGradient();
 });
 
 // For other parameters, use a separate watcher with higher debounce
@@ -663,7 +615,7 @@ watch(
   [customAngle, centerX, centerY, ellipticalRotation],
   () => {
     saveToLocalStorage();
-    debouncedApplyGradient();
+    applyGradient();
   },
   { flush: "post" }
 );
@@ -673,7 +625,7 @@ watch(
   () => {
     // Clear caches and update when color stops change
     colorCache.clear();
-    debouncedApplyGradient();
+    applyGradient();
   },
   { deep: true }
 );
@@ -684,7 +636,7 @@ watch(
   () => {
     // Clear caches and update when color stops change
     colorCache.clear();
-    debouncedApplyGradient();
+    applyGradient();
   },
   { deep: true }
 );

@@ -29,6 +29,7 @@ const emit = defineEmits<{
   undo: [];
   clear: [];
   "update-pixel": [index: number, color: string];
+  "batch-update-pixels": [indices: number[], color: string]; // New emit for batch updates
 }>();
 
 // Local refs
@@ -99,6 +100,7 @@ function getBrushIndices(centerIndex: number): number[] {
   return indices;
 }
 
+// Modify the setColor function to use batch updates for brushes larger than 1
 function setColor(e: MouseEvent) {
   const target = e.target as SVGRectElement;
   const index = parseInt(target.dataset.number || "-1");
@@ -125,28 +127,56 @@ function setColor(e: MouseEvent) {
   // Create a copy of the pixel data to update
   const newData = [...pixelData.value];
 
-  // Update each pixel
-  newIndicesToUpdate.forEach((idx) => {
-    // Skip if the color is already the same
-    if (newData[idx] === activeColor.value) return;
+  // Use batch update if brush size > 1
+  if (props.brushSize > 1) {
+    // Filter indices where color actually needs to change
+    const indicesToChange = newIndicesToUpdate.filter(
+      (idx) => newData[idx] !== activeColor.value
+    );
 
-    // Emit the update-pixel event for this index
-    emit("update-pixel", idx, activeColor.value);
+    if (indicesToChange.length > 0) {
+      // Emit batch update event
+      emit("batch-update-pixels", indicesToChange, activeColor.value);
 
-    // Update the visual immediately
-    const element = document.querySelector(
-      `[data-number="${idx}"]`
-    ) as SVGRectElement;
-    if (element) {
-      element.setAttribute("fill", activeColor.value);
+      // Update local visual representation immediately
+      indicesToChange.forEach((idx) => {
+        newData[idx] = activeColor.value;
+        const element = document.querySelector(
+          `[data-number="${idx}"]`
+        ) as SVGRectElement;
+        if (element) {
+          element.setAttribute("fill", activeColor.value);
+        }
+      });
+
+      // Update the model value with all changes
+      emit("update:modelValue", newData);
     }
+  } else {
+    // For single pixel updates, use the original approach
+    // Update each pixel individually
+    newIndicesToUpdate.forEach((idx) => {
+      // Skip if the color is already the same
+      if (newData[idx] === activeColor.value) return;
 
-    // Update the data
-    newData[idx] = activeColor.value;
-  });
+      // Emit the update-pixel event for this index
+      emit("update-pixel", idx, activeColor.value);
 
-  // Update the model value with all changes
-  emit("update:modelValue", newData);
+      // Update the visual immediately
+      const element = document.querySelector(
+        `[data-number="${idx}"]`
+      ) as SVGRectElement;
+      if (element) {
+        element.setAttribute("fill", activeColor.value);
+      }
+
+      // Update the data
+      newData[idx] = activeColor.value;
+    });
+
+    // Update the model value with all changes
+    emit("update:modelValue", newData);
+  }
 }
 
 function dragColor(e: MouseEvent) {
@@ -163,19 +193,48 @@ function rightClick(e: MouseEvent) {
   // Skip if we can't determine the index
   if (index === -1) return;
 
-  // Skip if the color is already black
-  if (pixelData.value[index] === "#000000") return;
+  // Get all indices for the brush (for multi-pixel eraser)
+  const indices = getBrushIndices(index);
 
-  // Emit the update-pixel event to let the parent handle history
-  emit("update-pixel", index, "#000000");
+  // Filter to only includes pixels that aren't already black
+  const indicesToErase = indices.filter(
+    (idx) => pixelData.value[idx] !== "#000000"
+  );
 
-  // Update visual immediately
-  target.setAttribute("fill", "#000000");
+  if (indicesToErase.length === 0) return;
 
-  // Update the model
-  const newData = [...pixelData.value];
-  newData[index] = "#000000";
-  emit("update:modelValue", newData);
+  // For multiple pixels, use batch update
+  if (indicesToErase.length > 1) {
+    emit("batch-update-pixels", indicesToErase, "#000000");
+
+    // Update visual immediately
+    indicesToErase.forEach((idx) => {
+      const element = document.querySelector(
+        `[data-number="${idx}"]`
+      ) as SVGRectElement;
+      if (element) {
+        element.setAttribute("fill", "#000000");
+      }
+    });
+
+    // Update the model
+    const newData = [...pixelData.value];
+    indicesToErase.forEach((idx) => {
+      newData[idx] = "#000000";
+    });
+    emit("update:modelValue", newData);
+  } else {
+    // For single pixel, use normal update
+    emit("update-pixel", index, "#000000");
+
+    // Update visual immediately
+    target.setAttribute("fill", "#000000");
+
+    // Update the model
+    const newData = [...pixelData.value];
+    newData[index] = "#000000";
+    emit("update:modelValue", newData);
+  }
 }
 </script>
 
