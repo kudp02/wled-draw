@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from "vue";
-import { Undo2, Trash2, PenLine, Eraser, Brush } from "lucide-vue-next";
+import {
+  Undo2,
+  Trash2,
+  PenLine,
+  Eraser,
+  Brush,
+  Copy,
+  Check,
+} from "lucide-vue-next";
 
 // Define toolbar props
 interface ToolbarProps {
@@ -8,12 +16,14 @@ interface ToolbarProps {
   gridWidth: number;
   gridHeight: number;
   brushSize?: number;
+  wledJson?: string; // Add JSON prop
 }
 
 // Define props with defaults
 const props = withDefaults(defineProps<ToolbarProps>(), {
   currentTool: "pen",
   brushSize: 1,
+  wledJson: "", // Default for wledJson
 });
 
 // Define emits
@@ -34,6 +44,7 @@ const tools = [
 // Local refs
 const selectedTool = ref(props.currentTool);
 const brushSize = ref(props.brushSize);
+const copied = ref(false); // For copy JSON functionality
 
 // Watch for prop changes
 watch(
@@ -66,6 +77,41 @@ function updateBrushSize(newSize: number) {
 function cycleBrushSize() {
   const nextSize = (brushSize.value % 2) + 1;
   updateBrushSize(nextSize);
+}
+
+// JSON preset copy functionality
+function copyJsonPreset() {
+  if (!props.wledJson) return;
+
+  if (navigator.clipboard && window.isSecureContext) {
+    // Modern approach with clipboard API (secure contexts)
+    navigator.clipboard
+      .writeText(props.wledJson)
+      .then(() => {
+        copied.value = true;
+        setTimeout(() => (copied.value = false), 2000);
+      })
+      .catch((err) => {
+        console.error("Failed to copy text: ", err);
+      });
+  } else {
+    // Fallback for older browsers or non-secure contexts
+    const textarea = document.createElement("textarea");
+    textarea.value = props.wledJson;
+    textarea.setAttribute("aria-hidden", "true");
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    try {
+      document.execCommand("copy");
+      copied.value = true;
+      setTimeout(() => (copied.value = false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
 }
 
 // Handle keyboard shortcuts
@@ -131,10 +177,10 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="flex items-center p-2 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md mb-4 select-none"
+    class="flex items-center p-2 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md mb-3 select-none"
   >
     <!-- Drawing tools -->
-    <div class="flex gap-1 mr-4">
+    <div class="flex gap-1 mr-2">
       <button
         v-for="tool in tools"
         :key="tool.id"
@@ -153,7 +199,7 @@ onUnmounted(() => {
         <!-- Brush size indicator -->
         <span
           v-if="tool.id === 'brush'"
-          class="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center"
+          class="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full size-4 flex items-center justify-center"
         >
           {{ brushSize }}
         </span>
@@ -179,7 +225,7 @@ onUnmounted(() => {
     <div class="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
 
     <!-- History actions -->
-    <div class="flex gap-1 mr-4">
+    <div class="flex gap-1 mx-2">
       <button
         @click="emit('undo')"
         class="p-2 bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-md transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-600 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 relative group"
@@ -214,7 +260,7 @@ onUnmounted(() => {
     <div class="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
 
     <!-- Canvas size indicator -->
-    <div class="text-sm text-gray-600 dark:text-gray-400 mr-4 font-mono">
+    <div class="text-sm text-gray-600 dark:text-gray-400 mr-4 font-mono ml-2">
       {{ gridWidth }}×{{ gridHeight }}
     </div>
 
@@ -222,7 +268,24 @@ onUnmounted(() => {
     <div class="flex-grow"></div>
 
     <!-- Settings button -->
-    <div class="flex gap-1">
+    <div class="flex gap-2">
+      <!-- JSON Preset Button (New) -->
+      <button
+        v-if="wledJson"
+        @click="copyJsonPreset"
+        class="p-2 bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-md transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-600 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 relative group"
+        title="Copy JSON Preset"
+      >
+        <Copy v-if="!copied" class="w-5 h-5" />
+        <Check v-else class="w-5 h-5" />
+
+        <!-- Tooltip -->
+        <span
+          class="absolute left-1/2 -bottom-8 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10"
+        >
+          {{ copied ? "Copied!" : "Copy JSON Preset" }}
+        </span>
+      </button>
       <slot> </slot>
     </div>
   </div>

@@ -1,7 +1,7 @@
 <template>
   <button
     @click="toggleDarkMode"
-    class="flex items-center justify-center rounded-md p-2 bg-gray-100 dark:bg-dark-accent text-gray-700 dark:text-dark-text hover:bg-gray-200 dark:hover:bg-dark-primary transition-colors duration-200"
+    class="flex items-center justify-center cursor-pointer rounded-md p-2 bg-gray-100 dark:bg-dark-accent text-gray-700 dark:text-dark-text hover:bg-gray-200 dark:hover:bg-dark-muted/20 transition-colors duration-200"
     aria-label="Toggle dark mode"
   >
     <!-- Sun icon for light mode -->

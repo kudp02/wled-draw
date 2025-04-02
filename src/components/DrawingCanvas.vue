@@ -262,7 +262,7 @@ function rightClick(e: MouseEvent) {
     @touchend="mouseUp"
   >
     <div
-      class="flex items-center justify-center bg-gray-900 dark:bg-gray-800 rounded-lg shadow-lg p-4 h-full max-h-[85vh] transition-colors duration-200"
+      class="flex items-center justify-center bg-gray-900 dark:bg-gray-800 rounded-lg shadow-lg p-4 h-full max-h-[89vh] transition-colors duration-200"
     >
       <svg :view-box.camel="viewBox" class="w-full h-full">
         <g v-for="(_, yIndex) in gridHeight" :key="`row-${yIndex}`">

@@ -105,17 +105,17 @@ function handleBrushSizeChange(size: number) {
     <aside
       class="w-[300px] bg-white dark:bg-dark-primary shadow-md overflow-y max-h-screen transition-colors duration-200"
     >
-      <div class="p-6 flex flex-col gap-6 h-full overflow-y-auto">
+      <div class="p-6 pr-3 flex flex-col gap-6 h-full overflow-y-auto">
         <!-- Header with WLED link and dark mode toggle -->
         <div class="flex justify-between items-center mb-4">
           <div class="flex items-center gap-2">
             <a
               v-if="wledUrl"
               :href="wledUrl"
-              class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors dark:bg-blue-600 dark:hover:bg-blue-700"
+              class="inline-flex items-center justify-center size-7 rounded-full bg-gray-100 dark:bg-dark-accent dark:text-white hover:bg-gray-200 dark:hover:bg-dark-muted/20"
               title="Go back to WLED"
             >
-              <ArrowLeft class="w-5 h-5" />
+              <ArrowLeft class="size-4" />
             </a>
             <h1 class="text-xl font-bold">Matrix Editor</h1>
           </div>
@@ -149,7 +149,7 @@ function handleBrushSizeChange(size: number) {
 
     <!-- Main Content Area -->
     <main
-      class="flex-1 p-6 flex flex-col dark:bg-dark-primary transition-colors duration-200"
+      class="flex-1 p-6 pl-3 flex flex-col dark:bg-dark-primary transition-colors duration-200"
     >
       <!-- Status Notifications (Loading/Error) -->
       <div class="w-full max-w-3xl mx-auto mb-4" v-if="loading || error">
@@ -190,28 +190,27 @@ function handleBrushSizeChange(size: number) {
       </div>
 
       <!-- Toolbar -->
-      <div class="w-full mx-auto mb-4">
-        <Toolbar
-          v-model:current-tool="currentTool"
-          v-model:brush-size="brushSize"
-          :grid-width="gridWidth"
-          :grid-height="gridHeight"
-          @undo="undo"
-          @clear="clearScreen"
-          @update:brushSize="handleBrushSizeChange"
-        >
-          <!-- Settings Section -->
-          <Settings
-            v-model:api-url="apiUrl"
-            v-model:grid-width="gridWidth"
-            v-model:grid-height="gridHeight"
-            v-model:debounce-delay="debounceDelay"
-            :wled-json="wledJson"
-            class="flex-shrink-0"
-            @update:apiUrl="isSettingsOpen = false"
-          />
-        </Toolbar>
-      </div>
+      <Toolbar
+        v-model:current-tool="currentTool"
+        v-model:brush-size="brushSize"
+        :grid-width="gridWidth"
+        :grid-height="gridHeight"
+        :wled-json="wledJson"
+        @undo="undo"
+        @clear="clearScreen"
+        @update:brushSize="handleBrushSizeChange"
+      >
+        <!-- Settings Section -->
+        <Settings
+          v-model:api-url="apiUrl"
+          v-model:grid-width="gridWidth"
+          v-model:grid-height="gridHeight"
+          v-model:debounce-delay="debounceDelay"
+          :wled-json="wledJson"
+          class="flex-shrink-0"
+          @update:apiUrl="isSettingsOpen = false"
+        />
+      </Toolbar>
 
       <!-- Drawing Canvas - Main interactive component -->
       <DrawingCanvas

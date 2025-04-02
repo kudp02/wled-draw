@@ -162,7 +162,7 @@ onMounted(() => {
   >
     <!-- Component Header / Toggle Button -->
     <div
-      class="flex justify-between items-center px-4 py-3 cursor-pointer select-none bg-gray-100 dark:bg-dark-accent transition-colors duration-200"
+      class="flex justify-between items-center px-4 py-3 cursor-pointer select-none transition-colors duration-200"
       @click="toggleExpanded"
     >
       <h3 class="m-0 text-base font-medium text-gray-700 dark:text-dark-text">
@@ -194,7 +194,7 @@ onMounted(() => {
     <div v-show="isExpanded" class="transition-all duration-300">
       <!-- Color Preview -->
       <div
-        class="w-full h-20 flex items-center justify-center font-semibold text-lg transition-colors duration-300"
+        class="w-full h-20 flex items-center justify-center font-semibold text-lg transition-colors duration-300 rounded-b-lg"
         :style="{ backgroundColor: localColor, color: textColor }"
       >
         <span class="tracking-wider">{{ localColor }}</span>

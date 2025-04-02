@@ -677,300 +677,302 @@ input[type="range"]::-moz-range-thumb {
 </style>
 
 <template>
-  <div
-    class="bg-white dark:bg-dark-secondary rounded-lg shadow-sm overflow-hidden transition-colors duration-200 flex-shrink-0"
-  >
-    <!-- Header -->
+  <div>
     <div
-      class="p-3 bg-gray-50 dark:bg-dark-accent flex justify-between items-center cursor-pointer select-none transition-colors duration-200"
-      @click="toggleExpandedState"
+      class="bg-white dark:bg-dark-secondary rounded-lg shadow-sm overflow-hidden transition-colors duration-200 flex-shrink-0"
     >
-      <h3
-        class="font-medium text-gray-700 dark:text-dark-text transition-colors duration-200"
-      >
-        Gradient Generator
-      </h3>
-      <svg
-        class="w-5 h-5 transition-transform duration-200"
-        :class="{ 'rotate-180': expanded }"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M19 9l-7 7-7-7"
-        ></path>
-      </svg>
-    </div>
-  </div>
-
-  <!-- Content -->
-  <div v-if="expanded" class="space-y-4">
-    <!-- Preview -->
-    <div class="mb-3 relative overflow-hidden rounded-lg">
+      <!-- Header -->
       <div
-        class="w-full h-32 shadow-inner rounded-lg"
-        :style="{ background: cssGradient }"
-      ></div>
-      <!-- Center indicator for radial/elliptical gradients - optimized with v-memo -->
-      <div
-        v-if="gradientType !== 'linear'"
-        v-memo="[centerX, centerY]"
-        class="gradient-center-indicator"
-        :style="{ left: `${centerX}%`, top: `${centerY}%` }"
-      ></div>
+        class="p-3 bg-gray-50 dark:bg-dark-accent flex justify-between items-center cursor-pointer select-none transition-colors duration-200"
+        @click="toggleExpandedState"
+      >
+        <h3
+          class="font-medium text-gray-700 dark:text-dark-text transition-colors duration-200"
+        >
+          Gradient Generator
+        </h3>
+        <svg
+          class="w-5 h-5 transition-transform duration-200"
+          :class="{ 'rotate-180': expanded }"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M19 9l-7 7-7-7"
+          ></path>
+        </svg>
+      </div>
     </div>
 
-    <!-- Color Stops -->
-    <div>
-      <div class="flex justify-between items-center mb-2">
-        <label class="block text-sm font-medium dark:text-dark-text"
-          >Color Stops</label
-        >
-        <button
-          @click="addColorStop"
-          :disabled="colorStops.length >= 4"
-          class="p-1 text-blue-500 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed"
-          title="Add color stop (max 4)"
-        >
-          <Plus class="w-4 h-4" />
-        </button>
+    <!-- Content -->
+    <div v-if="expanded" class="space-y-4">
+      <!-- Preview -->
+      <div class="mb-3 relative overflow-hidden">
+        <div
+          class="w-full h-32 shadow-inner rounded-b-lg"
+          :style="{ background: cssGradient }"
+        ></div>
+        <!-- Center indicator for radial/elliptical gradients - optimized with v-memo -->
+        <div
+          v-if="gradientType !== 'linear'"
+          v-memo="[centerX, centerY]"
+          class="gradient-center-indicator"
+          :style="{ left: `${centerX}%`, top: `${centerY}%` }"
+        ></div>
       </div>
 
-      <div class="space-y-3">
-        <div
-          v-for="(stop, index) in colorStops"
-          :key="`stop-${index}`"
-          class="bg-gray-50 dark:bg-dark-accent p-2 rounded-lg flex items-center gap-2"
-        >
-          <div class="flex-none">
-            <div
-              class="w-7 h-7 rounded cursor-pointer shadow-sm border border-gray-300 dark:border-gray-600"
-              :style="{ backgroundColor: stop.color }"
-            >
+      <!-- Color Stops -->
+      <div>
+        <div class="flex justify-between items-center mb-2">
+          <label class="block text-sm font-medium dark:text-dark-text"
+            >Color Stops</label
+          >
+          <button
+            @click="addColorStop"
+            :disabled="colorStops.length >= 4"
+            class="p-1 text-blue-500 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+            title="Add color stop (max 4)"
+          >
+            <Plus class="w-4 h-4" />
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <div
+            v-for="(stop, index) in colorStops"
+            :key="`stop-${index}`"
+            class="bg-gray-50 dark:bg-dark-accent p-2 rounded-lg flex items-center gap-2"
+          >
+            <div class="flex-none">
+              <div
+                class="w-7 h-7 rounded cursor-pointer shadow-sm border border-gray-300 dark:border-gray-600"
+                :style="{ backgroundColor: stop.color }"
+              >
+                <input
+                  type="color"
+                  :value="stop.color"
+                  @input="e => updateStopColor(index, (e.target as HTMLInputElement).value)"
+                  class="opacity-0 w-full h-full cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <div class="flex-1">
               <input
-                type="color"
-                :value="stop.color"
-                @input="e => updateStopColor(index, (e.target as HTMLInputElement).value)"
-                class="opacity-0 w-full h-full cursor-pointer"
+                type="range"
+                :value="stop.position"
+                @input="e => updateStopPosition(index, parseInt((e.target as HTMLInputElement).value))"
+                min="0"
+                max="100"
+                class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500ed-full outline-none"
               />
             </div>
-          </div>
 
-          <div class="flex-1">
+            <div class="flex-none w-10 text-center">
+              <span class="text-xs font-mono dark:text-dark-text"
+                >{{ stop.position }}%</span
+              >
+            </div>
+
+            <button
+              v-if="colorStops.length > 2"
+              @click="removeColorStop(index)"
+              class="flex-none p-1 text-red-500 hover:text-red-700"
+              title="Remove color stop"
+            >
+              <Minus class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="space-y-4">
+        <!-- Gradient Type -->
+        <div>
+          <label class="block text-sm font-medium mb-2 dark:text-dark-text"
+            >Type</label
+          >
+          <div class="flex gap-2">
+            <button
+              @click="gradientType = 'linear'"
+              class="flex-1 py-1.5 px-3 rounded text-sm transition-colors"
+              :class="{
+                'bg-blue-500 text-white': gradientType === 'linear',
+                'bg-gray-100 dark:bg-dark-accent hover:bg-gray-200 dark:hover:bg-gray-700':
+                  gradientType !== 'linear',
+              }"
+            >
+              Linear
+            </button>
+            <button
+              @click="gradientType = 'radial'"
+              class="flex-1 py-1.5 px-3 rounded text-sm transition-colors"
+              :class="{
+                'bg-blue-500 text-white': gradientType === 'radial',
+                'bg-gray-100 dark:bg-dark-accent hover:bg-gray-200 dark:hover:bg-gray-700':
+                  gradientType !== 'radial',
+              }"
+            >
+              Radial
+            </button>
+            <button
+              @click="gradientType = 'elliptical'"
+              class="flex-1 py-1.5 px-3 rounded text-sm transition-colors"
+              :class="{
+                'bg-blue-500 text-white': gradientType === 'elliptical',
+                'bg-gray-100 dark:bg-dark-accent hover:bg-gray-200 dark:hover:bg-gray-700':
+                  gradientType !== 'elliptical',
+              }"
+            >
+              Elliptical
+            </button>
+          </div>
+        </div>
+
+        <!-- Linear Gradient Angle Control -->
+        <div v-if="gradientType === 'linear'" class="space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="block text-sm font-medium dark:text-dark-text"
+              >Angle: {{ customAngle }}°</label
+            >
+            <button
+              @click="updateCustomAngle(90)"
+              class="text-xs py-1 px-2 bg-gray-100 dark:bg-dark-accent rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+          <input
+            type="range"
+            :value="customAngle"
+            @input="e => updateCustomAngle(parseInt((e.target as HTMLInputElement).value))"
+            min="0"
+            max="359"
+            class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500 rounded-full outline-none"
+          />
+          <div
+            class="flex justify-between text-xs text-gray-500 dark:text-gray-400"
+          >
+            <span>0° </span>
+            <span>90° </span>
+            <span>180° </span>
+            <span>270° </span>
+            <span>359°</span>
+          </div>
+        </div>
+
+        <!-- Radial/Elliptical Center Controls -->
+        <div v-if="gradientType !== 'linear'" class="space-y-3">
+          <div>
+            <div class="flex justify-between items-center">
+              <label class="block text-sm font-medium dark:text-dark-text"
+                >Center X: {{ centerX }}%</label
+              >
+              <button
+                @click="updateCenterX(50)"
+                class="text-xs py-1 px-2 bg-gray-100 dark:bg-dark-accent rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Center
+              </button>
+            </div>
             <input
               type="range"
-              :value="stop.position"
-              @input="e => updateStopPosition(index, parseInt((e.target as HTMLInputElement).value))"
+              :value="centerX"
+              @input="e => updateCenterX(parseInt((e.target as HTMLInputElement).value))"
               min="0"
               max="100"
-              class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500ed-full outline-none"
+              class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500 rounded-full outline-none"
             />
           </div>
 
-          <div class="flex-none w-10 text-center">
-            <span class="text-xs font-mono dark:text-dark-text"
-              >{{ stop.position }}%</span
-            >
+          <div>
+            <div class="flex justify-between items-center">
+              <label class="block text-sm font-medium dark:text-dark-text"
+                >Center Y: {{ centerY }}%</label
+              >
+              <button
+                @click="updateCenterY(50)"
+                class="text-xs py-1 px-2 bg-gray-100 dark:bg-dark-accent rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Center
+              </button>
+            </div>
+            <input
+              type="range"
+              :value="centerY"
+              @input="e => updateCenterY(parseInt((e.target as HTMLInputElement).value))"
+              min="0"
+              max="100"
+              class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500 rounded-full outline-none"
+            />
           </div>
-
-          <button
-            v-if="colorStops.length > 2"
-            @click="removeColorStop(index)"
-            class="flex-none p-1 text-red-500 hover:text-red-700"
-            title="Remove color stop"
-          >
-            <Minus class="w-4 h-4" />
-          </button>
         </div>
-      </div>
-    </div>
 
-    <!-- Controls -->
-    <div class="space-y-4">
-      <!-- Gradient Type -->
-      <div>
-        <label class="block text-sm font-medium mb-2 dark:text-dark-text"
-          >Type</label
-        >
-        <div class="flex gap-2">
-          <button
-            @click="gradientType = 'linear'"
-            class="flex-1 py-1.5 px-3 rounded text-sm transition-colors"
-            :class="{
-              'bg-blue-500 text-white': gradientType === 'linear',
-              'bg-gray-100 dark:bg-dark-accent hover:bg-gray-200 dark:hover:bg-gray-700':
-                gradientType !== 'linear',
-            }"
-          >
-            Linear
-          </button>
-          <button
-            @click="gradientType = 'radial'"
-            class="flex-1 py-1.5 px-3 rounded text-sm transition-colors"
-            :class="{
-              'bg-blue-500 text-white': gradientType === 'radial',
-              'bg-gray-100 dark:bg-dark-accent hover:bg-gray-200 dark:hover:bg-gray-700':
-                gradientType !== 'radial',
-            }"
-          >
-            Radial
-          </button>
-          <button
-            @click="gradientType = 'elliptical'"
-            class="flex-1 py-1.5 px-3 rounded text-sm transition-colors"
-            :class="{
-              'bg-blue-500 text-white': gradientType === 'elliptical',
-              'bg-gray-100 dark:bg-dark-accent hover:bg-gray-200 dark:hover:bg-gray-700':
-                gradientType !== 'elliptical',
-            }"
-          >
-            Elliptical
-          </button>
-        </div>
-      </div>
-
-      <!-- Linear Gradient Angle Control -->
-      <div v-if="gradientType === 'linear'" class="space-y-2">
-        <div class="flex justify-between items-center">
-          <label class="block text-sm font-medium dark:text-dark-text"
-            >Angle: {{ customAngle }}°</label
-          >
-          <button
-            @click="updateCustomAngle(90)"
-            class="text-xs py-1 px-2 bg-gray-100 dark:bg-dark-accent rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            Reset
-          </button>
-        </div>
-        <input
-          type="range"
-          :value="customAngle"
-          @input="e => updateCustomAngle(parseInt((e.target as HTMLInputElement).value))"
-          min="0"
-          max="359"
-          class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500 rounded-full outline-none"
-        />
-        <div
-          class="flex justify-between text-xs text-gray-500 dark:text-gray-400"
-        >
-          <span>0° </span>
-          <span>90° </span>
-          <span>180° </span>
-          <span>270° </span>
-          <span>359°</span>
-        </div>
-      </div>
-
-      <!-- Radial/Elliptical Center Controls -->
-      <div v-if="gradientType !== 'linear'" class="space-y-3">
-        <div>
+        <!-- Elliptical Rotation Control -->
+        <div v-if="gradientType === 'elliptical'" class="space-y-2">
           <div class="flex justify-between items-center">
             <label class="block text-sm font-medium dark:text-dark-text"
-              >Center X: {{ centerX }}%</label
+              >Rotation: {{ ellipticalRotation }}°</label
             >
             <button
-              @click="updateCenterX(50)"
+              @click="updateEllipticalRotation(0)"
               class="text-xs py-1 px-2 bg-gray-100 dark:bg-dark-accent rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
-              Center
+              Reset
             </button>
           </div>
           <input
             type="range"
-            :value="centerX"
-            @input="e => updateCenterX(parseInt((e.target as HTMLInputElement).value))"
+            :value="ellipticalRotation"
+            @input="e => updateEllipticalRotation(parseInt((e.target as HTMLInputElement).value))"
             min="0"
-            max="100"
+            max="359"
             class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500 rounded-full outline-none"
           />
+          <div
+            class="flex justify-between text-xs text-gray-500 dark:text-gray-400"
+          >
+            <span>0°</span>
+            <span>90°</span>
+            <span>180°</span>
+            <span>270°</span>
+            <span>359°</span>
+          </div>
         </div>
 
+        <!-- Scale (Zoom) Control -->
         <div>
           <div class="flex justify-between items-center">
             <label class="block text-sm font-medium dark:text-dark-text"
-              >Center Y: {{ centerY }}%</label
+              >Scale: {{ scaleValue }}%</label
             >
             <button
-              @click="updateCenterY(50)"
+              @click="resetTransform"
               class="text-xs py-1 px-2 bg-gray-100 dark:bg-dark-accent rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
-              Center
+              Reset
             </button>
           </div>
           <input
             type="range"
-            :value="centerY"
-            @input="e => updateCenterY(parseInt((e.target as HTMLInputElement).value))"
-            min="0"
-            max="100"
+            :value="scaleValue"
+            @input="e => updateScale(parseInt((e.target as HTMLInputElement).value))"
+            min="50"
+            max="300"
             class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500 rounded-full outline-none"
           />
-        </div>
-      </div>
-
-      <!-- Elliptical Rotation Control -->
-      <div v-if="gradientType === 'elliptical'" class="space-y-2">
-        <div class="flex justify-between items-center">
-          <label class="block text-sm font-medium dark:text-dark-text"
-            >Rotation: {{ ellipticalRotation }}°</label
+          <div
+            class="flex justify-between text-xs text-gray-500 dark:text-gray-400"
           >
-          <button
-            @click="updateEllipticalRotation(0)"
-            class="text-xs py-1 px-2 bg-gray-100 dark:bg-dark-accent rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            Reset
-          </button>
-        </div>
-        <input
-          type="range"
-          :value="ellipticalRotation"
-          @input="e => updateEllipticalRotation(parseInt((e.target as HTMLInputElement).value))"
-          min="0"
-          max="359"
-          class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500 rounded-full outline-none"
-        />
-        <div
-          class="flex justify-between text-xs text-gray-500 dark:text-gray-400"
-        >
-          <span>0°</span>
-          <span>90°</span>
-          <span>180°</span>
-          <span>270°</span>
-          <span>359°</span>
-        </div>
-      </div>
-
-      <!-- Scale (Zoom) Control -->
-      <div>
-        <div class="flex justify-between items-center">
-          <label class="block text-sm font-medium dark:text-dark-text"
-            >Scale: {{ scaleValue }}%</label
-          >
-          <button
-            @click="resetTransform"
-            class="text-xs py-1 px-2 bg-gray-100 dark:bg-dark-accent rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            Reset
-          </button>
-        </div>
-        <input
-          type="range"
-          :value="scaleValue"
-          @input="e => updateScale(parseInt((e.target as HTMLInputElement).value))"
-          min="50"
-          max="300"
-          class="w-full h-2 appearance-none bg-gradient-to-r from-gray-200 to-gray-400 dark:from-gray-700 dark:to-gray-500 rounded-full outline-none"
-        />
-        <div
-          class="flex justify-between text-xs text-gray-500 dark:text-gray-400"
-        >
-          <span>50%</span>
-          <span>100%</span>
-          <span>300%</span>
+            <span>50%</span>
+            <span>100%</span>
+            <span>300%</span>
+          </div>
         </div>
       </div>
     </div>

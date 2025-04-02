@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from "vue";
-import { Cog, X, Copy, Check, Save } from "lucide-vue-next";
+import { Cog, X, Save } from "lucide-vue-next";
 
 interface SettingsProps {
   apiUrl: string;
   gridWidth: number;
   gridHeight: number;
   debounceDelay: number;
-  wledJson: string;
+  wledJson: string; // Keep the prop but won't display it anymore
 }
 
 // Define emits with TypeScript type
@@ -29,13 +29,10 @@ const emit = defineEmits<SettingsEmits>();
 
 // Local state
 const isModalOpen = ref(false);
-const copied = ref(false);
-const copyFailed = ref(false);
 const apiUrl = ref(props.apiUrl);
 const gridWidth = ref(props.gridWidth);
 const gridHeight = ref(props.gridHeight);
 const debounceDelay = ref(props.debounceDelay);
-const jsonDisplay = ref<HTMLPreElement | null>(null);
 const modalRef = ref<HTMLDialogElement | null>(null);
 const triggerRef = ref<HTMLButtonElement | null>(null);
 
@@ -133,44 +130,6 @@ function saveSettings(): void {
   closeModal();
 }
 
-function copyPreset(): void {
-  if (!jsonDisplay.value) return;
-
-  const textToCopy = jsonDisplay.value.innerText;
-
-  if (navigator.clipboard && window.isSecureContext) {
-    // Modern approach with clipboard API (secure contexts)
-    navigator.clipboard
-      .writeText(textToCopy)
-      .then(() => {
-        copied.value = true;
-        setTimeout(() => (copied.value = false), 2000);
-      })
-      .catch(() => {
-        copyFailed.value = true;
-        setTimeout(() => (copyFailed.value = false), 2000);
-      });
-  } else {
-    // Fallback for older browsers or non-secure contexts
-    const textarea = document.createElement("textarea");
-    textarea.value = textToCopy;
-    textarea.setAttribute("aria-hidden", "true");
-    document.body.appendChild(textarea);
-    textarea.select();
-
-    try {
-      document.execCommand("copy");
-      copied.value = true;
-      setTimeout(() => (copied.value = false), 2000);
-    } catch (err) {
-      copyFailed.value = true;
-      setTimeout(() => (copyFailed.value = false), 2000);
-    } finally {
-      document.body.removeChild(textarea);
-    }
-  }
-}
-
 // Watch for prop changes
 watch(
   () => props.apiUrl,
@@ -207,7 +166,7 @@ watch(
     <button
       ref="triggerRef"
       @click="openModal"
-      class="settings-button flex items-center justify-center py-2 px-4 text-base bg-gray-200 text-gray-800 rounded border-none cursor-pointer transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+      class="flex items-center justify-center p-2 text-base bg-white text-gray-800 rounded border-none cursor-pointer transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
       title="Settings"
       aria-haspopup="dialog"
       aria-expanded="false"
@@ -218,14 +177,14 @@ watch(
     <!-- Accessible Modal Dialog -->
     <div
       v-if="isModalOpen"
-      class="settings-modal-container fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       role="presentation"
     >
       <!-- Modal dialog -->
       <dialog
         ref="modalRef"
         open
-        class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto m-0 p-0"
+        class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto m-0 p-0 border-none relative animate-modal-appear"
         role="dialog"
         aria-labelledby="modal-title"
         aria-modal="true"
@@ -359,50 +318,6 @@ watch(
               updates but may cause more network traffic.
             </p>
           </div>
-
-          <!-- JSON Preview -->
-          <section class="space-y-2" aria-labelledby="json-title">
-            <div class="flex items-center justify-between">
-              <h3
-                id="json-title"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                JSON Preset
-              </h3>
-              <button
-                @click="copyPreset"
-                class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-900 dark:text-blue-100 dark:hover:bg-blue-800"
-                title="Copy to clipboard"
-                aria-label="Copy JSON preset to clipboard"
-              >
-                <Copy v-if="!copied" class="w-4 h-4 mr-1" />
-                <Check v-else class="w-4 h-4 mr-1" />
-                <span v-if="!copied">Copy</span>
-                <span v-else>Copied!</span>
-              </button>
-            </div>
-            <div class="relative">
-              <pre
-                ref="jsonDisplay"
-                class="p-3 bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto text-xs font-mono"
-                aria-label="JSON preset code"
-                tabindex="0"
-              >
-                {{ wledJson }}
-                </pre
-              >
-            </div>
-            <p
-              v-if="copyFailed"
-              class="text-xs text-red-600 dark:text-red-400"
-              role="alert"
-            >
-              Failed to copy text. Please try copying manually.
-            </p>
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              You can copy this JSON to manually create a preset in the WLED UI.
-            </p>
-          </section>
         </div>
 
         <!-- Modal footer -->
@@ -428,34 +343,7 @@ watch(
   </div>
 </template>
 
-<style scoped>
-/* Ensure dialog behaves properly in browsers that support it */
-dialog {
-  position: relative;
-  border: none;
-  border-radius: 0.5rem;
-}
-
-/* Focus styles for accessibility */
-:focus {
-  outline: none;
-}
-
-:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-/* Make the overlay more transparent */
-.settings-modal-container {
-  background-color: rgba(0, 0, 0, 0.3);
-}
-
-/* Add animation for modal */
-dialog {
-  animation: modal-appear 0.2s ease-out;
-}
-
+<style>
 @keyframes modal-appear {
   from {
     opacity: 0;
@@ -465,5 +353,9 @@ dialog {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+.animate-modal-appear {
+  animation: modal-appear 0.2s ease-out;
 }
 </style>
