@@ -28,10 +28,10 @@ const {
 
   // Core methods
   updatePixel,
-  batchUpdatePixels, // New batch update method
-  applyPixelArray, // New method for applying full pixel arrays
-  debouncedSendToWled, // Debounced API updates
-  flushChanges, // Method to force immediate update
+  batchUpdatePixels,
+  applyPixelArray,
+  sendDrawingUpdate, // New drawing-specific update method
+  flushChanges,
   undo,
   clearScreen,
   ignoreApiAndContinue,
@@ -51,7 +51,6 @@ const isSettingsOpen = ref(false);
  */
 function handleUpdatePixel(index: number, color: string) {
   updatePixel(index, color);
-  // No need to call debouncedSendToWled here - it's handled by updatePixel
 }
 
 /**
@@ -67,6 +66,12 @@ function handleBatchUpdatePixels(indices: number[], color: string) {
  * Handle draw complete event - flush any pending changes
  */
 const handleDrawComplete = () => flushChanges();
+
+// Add a handler for drawing updates
+function handleDrawingUpdate() {
+  // Use the drawing-specific update method
+  sendDrawingUpdate();
+}
 
 /**
  * Apply a gradient to the canvas - direct connection to applyPixelArray
@@ -220,6 +225,7 @@ function handleBrushSizeChange(size: number) {
         :brush-size="brushSize"
         @update-pixel="handleUpdatePixel"
         @batch-update-pixels="handleBatchUpdatePixels"
+        @drawing-update="handleDrawingUpdate"
         @draw-complete="handleDrawComplete"
       />
     </main>

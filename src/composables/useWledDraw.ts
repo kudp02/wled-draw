@@ -211,11 +211,22 @@ export function useWledDraw() {
   }
 
   // Enhanced debounced version of sendToWled
-  function debouncedSendToWled(): void {
+  function debouncedSendToWled(forceImmediate: boolean = false): void {
     if (ignoreApi.value) return;
 
     // Set the change flag to ensure we send an update
     pixelDataChanged.value = true;
+
+    // If force immediate is true, send right away
+    if (forceImmediate) {
+      if (debounceTimer !== null) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+
+      sendToWledImmediate();
+      return;
+    }
 
     // If there's already a timer running, don't set a new one
     if (debounceTimer !== null) {
@@ -295,6 +306,26 @@ export function useWledDraw() {
     debouncedSendToWled();
   }
 
+  // Send updates during active drawing with a short delay
+  function sendDrawingUpdate(): void {
+    // Use a shorter delay for drawing updates (25ms is responsive yet efficient)
+    const drawingDelay = 25;
+
+    // For drawing, we want to send updates more frequently
+    if (debounceTimer !== null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+
+    // Don't set the flag here since we're creating a new timer immediately
+    debounceTimer = window.setTimeout(() => {
+      if (pixelDataChanged.value) {
+        sendToWledImmediate();
+        debounceTimer = null;
+      }
+    }, drawingDelay);
+  }
+
   // Force send all pending changes immediately
   function flushChanges(): void {
     if (debounceTimer !== null) {
@@ -306,9 +337,6 @@ export function useWledDraw() {
       sendToWledImmediate();
     }
   }
-
-  // For backward compatibility (alias to debouncedSendToWled)
-  const sendToWled = debouncedSendToWled;
 
   // Fetch information from the WLED device
   function fetchWledInfo(): void {
@@ -486,9 +514,8 @@ export function useWledDraw() {
     updatePixel,
     batchUpdatePixels,
     applyPixelArray,
-    sendToWled: debouncedSendToWled,
     sendToWledImmediate,
-    debouncedSendToWled,
+    sendDrawingUpdate, // Specific method for drawing updates
     flushChanges,
     undo,
     clearScreen,

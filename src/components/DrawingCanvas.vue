@@ -12,7 +12,7 @@ interface DrawingProps {
   modelValue: string[];
 }
 
-// Use the generic defineProps with withDefaults
+// Use the default props
 const props = withDefaults(defineProps<DrawingProps>(), {
   gridWidth: 16,
   gridHeight: 16,
@@ -22,15 +22,20 @@ const props = withDefaults(defineProps<DrawingProps>(), {
   modelValue: () => [],
 });
 
-// Define the emits with proper types
+// Update the emits to include drawing-update
 const emit = defineEmits<{
   "update:modelValue": [value: string[]];
   "draw-complete": [];
   undo: [];
   clear: [];
   "update-pixel": [index: number, color: string];
-  "batch-update-pixels": [indices: number[], color: string]; // New emit for batch updates
+  "batch-update-pixels": [indices: number[], color: string];
+  "drawing-update": []; // Specific emit for drawing updates
 }>();
+
+// Add throttling for drawing updates
+let lastDrawingUpdateTime = 0;
+const drawingUpdateThrottle = 25; // ms between updates
 
 // Local refs
 const isMouseDown = ref(false);
@@ -56,10 +61,13 @@ function mouseDown(e: MouseEvent | TouchEvent) {
   lastDrawnIndices.value = [];
 }
 
+// Reset on mouseUp
 function mouseUp(e: MouseEvent | TouchEvent) {
   isMouseDown.value = false;
   lastDrawnIndex.value = null;
   lastDrawnIndices.value = [];
+
+  // Always emit draw-complete when finished
   emit("draw-complete");
 }
 
@@ -182,6 +190,13 @@ function setColor(e: MouseEvent) {
 function dragColor(e: MouseEvent) {
   if (isMouseDown.value) {
     setColor(e);
+
+    // Throttle drawing updates
+    const now = Date.now();
+    if (now - lastDrawingUpdateTime >= drawingUpdateThrottle) {
+      emit("drawing-update");
+      lastDrawingUpdateTime = now;
+    }
   }
 }
 
