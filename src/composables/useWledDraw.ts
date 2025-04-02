@@ -1,114 +1,114 @@
 import { ref, computed, watch, onMounted } from "vue";
 
+// Clear type definitions for history actions
+interface DrawAction {
+  type: "draw";
+  index: number;
+  color: string; // The previous color before change
+}
+
+interface ClearAction {
+  type: "clear";
+  pixels: string[]; // The previous state of all pixels
+}
+
+type HistoryAction = DrawAction | ClearAction;
+
 export function useWledDraw() {
-  // State variables
-  const title = ref("Draw Something");
-  const version = ref("2.0");
-  const apiUrl = ref("");
-  const wledUrl = ref("");
-  const cellSize = ref(10);
-  const gridWidth = ref(16);
-  const gridHeight = ref(16);
-  const nightlightTimer = ref(0);
-  const pixelData = ref([]);
-  const currentColor = ref("#ff2500");
+  // ===== STATE VARIABLES =====
+  const apiUrl = ref(""); // WLED API endpoint URL
+  const wledUrl = ref(""); // Base WLED interface URL
+  const cellSize = ref(10); // Size of each pixel cell in the drawing grid
+  const gridWidth = ref(14); // Matrix width (in pixels)
+  const gridHeight = ref(20); // Matrix height (in pixels)
+  const pixelData = ref<string[]>([]); // Holds color values for each pixel
+  const currentColor = ref("#ff2500"); // Currently selected drawing color
+
+  // Default color palette
   const colorPalette = ref([
-    "#ff2500",
-    "#ff9305",
-    "#fdfc00",
-    "#20f80f",
-    "#0533ff",
-    "#ffffff",
-    "#929292",
-    "#000000",
+    "#ff2500", // Red
+    "#ff9305", // Orange
+    "#fdfc00", // Yellow
+    "#20f80f", // Green
+    "#0533ff", // Blue
+    "#ffffff", // White
+    "#929292", // Gray
+    "#000000", // Black
   ]);
 
-  // App state
-  const loading = ref(true);
-  const error = ref(false);
-  const ignoreApi = ref(false);
+  // ===== APPLICATION STATE =====
+  const loading = ref(true); // Loading status
+  const error = ref(false); // Error status
+  const ignoreApi = ref(false); // Flag to continue without API connection
 
-  // History tracking for undo
-  const history = ref([]);
-  const maxHistoryLength = 50;
+  // ===== HISTORY TRACKING FOR UNDO =====
+  const history = ref<HistoryAction[]>([]);
+  const maxHistoryLength = 50; // Limit history size to avoid memory issues
 
-  // Computed values for the WLED API
+  // ===== COMPUTED VALUES FOR WLED API =====
+  // Format JSON payload for sending to WLED API
   const wledJson = computed(() => {
-    return `{"on": true,"bri": 128,${nightlightTimerString.value} "v": true, "seg": {"i":[${formattedColors.value}]}}`;
+    return `{"on": true,"bri": 230, "v": true, "seg": {"i":[${formattedColors.value}]}}`;
   });
 
-  const nightlightTimerString = computed(() => {
-    if (nightlightTimer.value > 0) {
-      return `"nl": {"on": true, "dur": ${nightlightTimer.value}},`;
-    }
-    return "";
-  });
-
+  // Format pixel colors for WLED API (removes # from hex codes)
   const formattedColors = computed(() => {
-    // Create a new array to hold the rearranged colors
-    let serpentine = [];
-
-    // Loop through each row
-    for (let y = 0; y < gridHeight.value; y++) {
-      // Get the colors for this row
-      const rowStart = y * gridWidth.value;
-      const rowEnd = rowStart + gridWidth.value;
-      const rowColors = pixelData.value.slice(rowStart, rowEnd);
-
-      // If this is an even-indexed row (0, 2, 4, etc.), the direction is left to right
-      // If this is an odd-indexed row (1, 3, 5, etc.), the direction is right to left
-      const isReversedRow = y % 2 !== 0;
-
-      // Add the colors to the serpentine array in the correct order for this row
-      if (isReversedRow) {
-        // For odd-indexed rows, reverse the order
-        serpentine = serpentine.concat([...rowColors].reverse());
-      } else {
-        // For even-indexed rows, keep the original order
-        serpentine = serpentine.concat(rowColors);
-      }
-    }
-
-    // Format the colors for the JSON API
-    return serpentine
-      .map((color) => `"${color}"`)
+    return pixelData.value
+      .map((color) => `"${color || "#000000"}"`)
       .join(",")
       .replaceAll("#", "");
   });
 
-  // Methods
-  function saveToHistory(action) {
+  // ===== CORE METHODS =====
+
+  // Save an action to history for undo functionality
+  function saveToHistory(action: HistoryAction): void {
+    // Add action to history
     history.value.push(action);
-    // Limit history size to avoid memory issues
+
+    // Keep history within size limit
     if (history.value.length > maxHistoryLength) {
       history.value.shift();
     }
 
-    // Save to localStorage
-    saveToLocalStorage();
+    // Save history to localStorage
+    try {
+      localStorage.drawHistory = JSON.stringify(history.value);
+    } catch (e) {
+      console.error("Failed to save history to localStorage:", e);
+    }
   }
 
-  function undo() {
+  // Undo the last action (draw or clear)
+  function undo(): void {
     if (history.value.length === 0) return;
 
     const lastAction = history.value.pop();
 
-    if (lastAction.type === "draw") {
+    if (lastAction?.type === "draw") {
       // Restore a single pixel
       const { index, color } = lastAction;
       pixelData.value[index] = color;
-    } else if (lastAction.type === "clear") {
+    } else if (lastAction?.type === "clear") {
       // Restore the entire grid
       pixelData.value = [...lastAction.pixels];
     }
 
-    // Save to localStorage and update WLED
+    // Save updated history to localStorage
+    try {
+      localStorage.drawHistory = JSON.stringify(history.value);
+    } catch (e) {
+      console.error("Failed to save history to localStorage:", e);
+    }
+
+    // Save pixel data and update WLED
     saveToLocalStorage();
     sendToWled();
   }
 
-  function clearScreen() {
-    // Save current state to history
+  // Clear the screen (set all pixels to black)
+  function clearScreen(): void {
+    // Save current state to history for undo
     saveToHistory({
       type: "clear",
       pixels: [...pixelData.value],
@@ -122,14 +122,15 @@ export function useWledDraw() {
     sendToWled();
   }
 
-  function setupGrid() {
+  // Initialize or reset the drawing grid
+  function setupGrid(): void {
     const gridSize = gridWidth.value * gridHeight.value;
 
     // Clear the current pixel data
     pixelData.value = [];
 
     // Load from localStorage if available
-    let localData = [];
+    let localData: string[] = [];
     if (localStorage.pixelData) {
       try {
         localData = localStorage.pixelData.split(",");
@@ -142,10 +143,17 @@ export function useWledDraw() {
     for (let i = 0; i < gridSize; i++) {
       pixelData.value.push(localData[i] || "#000000");
     }
+
+    // Load history from localStorage
+    loadHistoryFromStorage();
   }
 
-  function updatePixel(index, newColor) {
-    // Save the old color to history for undo
+  // Update a single pixel with a new color
+  function updatePixel(index: number, newColor: string): void {
+    // Don't add to history if the color is the same
+    if (pixelData.value[index] === newColor) return;
+
+    // Save the old color to history for undo before changing the pixel
     saveToHistory({
       type: "draw",
       index,
@@ -159,7 +167,8 @@ export function useWledDraw() {
     saveToLocalStorage();
   }
 
-  function sendToWled() {
+  // Send the current pixel data to the WLED device
+  function sendToWled(): void {
     if (ignoreApi.value) return;
 
     fetch(apiUrl.value, {
@@ -171,7 +180,7 @@ export function useWledDraw() {
     })
       .then((response) => response.json())
       .then((data) => {
-        console.log("WLED API response:", data);
+        // Success - nothing specific to do
       })
       .catch((error) => {
         console.error("WLED API Error:", error);
@@ -179,7 +188,8 @@ export function useWledDraw() {
       });
   }
 
-  function fetchWledInfo() {
+  // Fetch information from the WLED device
+  function fetchWledInfo(): void {
     loading.value = true;
 
     fetch(apiUrl.value, {
@@ -190,13 +200,11 @@ export function useWledDraw() {
     })
       .then((response) => response.json())
       .then((data) => {
-        console.log("WLED API info:", data);
-
         // Extract WLED URL from the API URL
         const url = new URL(apiUrl.value);
         wledUrl.value = `${url.protocol}//${url.hostname}`;
 
-        // Update grid dimensions from WLED
+        // Update grid dimensions from WLED if available
         if (data.info && data.info.leds && data.info.leds.matrix) {
           gridWidth.value = data.info.leds.matrix.w;
           gridHeight.value = data.info.leds.matrix.h;
@@ -219,35 +227,46 @@ export function useWledDraw() {
       });
   }
 
-  function ignoreApiAndContinue() {
+  // Continue using the app without API connection
+  function ignoreApiAndContinue(): void {
     ignoreApi.value = true;
     loading.value = false;
     error.value = false;
     setupGrid();
   }
 
-  function saveToLocalStorage() {
-    // Save everything to localStorage
+  // ===== PERSISTENCE METHODS =====
+
+  // Save current state to localStorage
+  function saveToLocalStorage(): void {
     localStorage.pixelData = pixelData.value.toString();
     localStorage.currentColor = currentColor.value;
     localStorage.colorPalette = colorPalette.value.toString();
     localStorage.gridWidth = gridWidth.value;
     localStorage.gridHeight = gridHeight.value;
-    localStorage.nightlightTimer = nightlightTimer.value;
+    // Note: History is saved separately to avoid circular calls
   }
 
-  function loadFromLocalStorage() {
-    // Load from localStorage
+  // Load history from localStorage
+  function loadHistoryFromStorage(): void {
+    if (localStorage.drawHistory) {
+      try {
+        history.value = JSON.parse(localStorage.drawHistory);
+      } catch (e) {
+        console.error("Error loading history from localStorage:", e);
+        history.value = [];
+      }
+    }
+  }
+
+  // Load all settings from localStorage
+  function loadFromLocalStorage(): void {
     if (localStorage.currentColor) {
       currentColor.value = localStorage.currentColor;
     }
 
     if (localStorage.colorPalette) {
       colorPalette.value = localStorage.colorPalette.split(",");
-    }
-
-    if (localStorage.nightlightTimer) {
-      nightlightTimer.value = Number(localStorage.nightlightTimer);
     }
 
     if (localStorage.gridWidth) {
@@ -259,8 +278,10 @@ export function useWledDraw() {
     }
   }
 
-  // Setup keyboard shortcuts
-  function setupKeyboardShortcuts() {
+  // ===== KEYBOARD SHORTCUTS =====
+
+  // Setup keyboard shortcuts (Ctrl+Z for undo)
+  function setupKeyboardShortcuts(): void {
     document.addEventListener("keydown", (e) => {
       // Undo shortcut: Ctrl+Z / Cmd+Z
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
@@ -270,23 +291,25 @@ export function useWledDraw() {
     });
   }
 
-  // Initialize the app
-  function initialize() {
-    // Load from localStorage first
+  // ===== INITIALIZATION =====
+
+  // Initialize the application
+  function initialize(): void {
+    // Load settings from localStorage
     loadFromLocalStorage();
 
-    // Detect demo mode
-    const host = window.location.host;
-
     // Set default API URL
-    apiUrl.value = `http://${host}/json`;
+    const defaultHost = "192.168.68.132";
+    apiUrl.value = `http://${defaultHost}/json`;
 
     // Setup keyboard shortcuts
     setupKeyboardShortcuts();
 
-    // Fetch WLED info
+    // Fetch WLED information
     fetchWledInfo();
   }
+
+  // ===== WATCHERS =====
 
   // Watch for changes to grid dimensions and update the grid
   watch([gridWidth, gridHeight], () => {
@@ -298,22 +321,19 @@ export function useWledDraw() {
     fetchWledInfo();
   });
 
-  // Use in the component
+  // Initialize on component mount
   onMounted(() => {
     initialize();
   });
 
-  // Return everything needed
+  // Return everything needed by components
   return {
     // State
-    title,
-    version,
     apiUrl,
     wledUrl,
     cellSize,
     gridWidth,
     gridHeight,
-    nightlightTimer,
     pixelData,
     currentColor,
     colorPalette,

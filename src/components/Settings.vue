@@ -1,0 +1,428 @@
+<script setup>
+import { ref, watch, onBeforeUnmount } from "vue";
+import { Cog, X, Copy, Check, Save } from "lucide-vue-next";
+
+const props = defineProps({
+  apiUrl: {
+    type: String,
+    default: "",
+  },
+  gridWidth: {
+    type: Number,
+    default: 16,
+  },
+  gridHeight: {
+    type: Number,
+    default: 16,
+  },
+  // wledJson: {
+  //   type: String,
+  //   required: true,
+  // },
+});
+
+const emit = defineEmits([
+  "update:apiUrl",
+  "update:gridWidth",
+  "update:gridHeight",
+]);
+
+// Local state
+const isModalOpen = ref(false);
+const copied = ref(false);
+const copyFailed = ref(false);
+const apiUrl = ref(props.apiUrl);
+const gridWidth = ref(props.gridWidth);
+const gridHeight = ref(props.gridHeight);
+const jsonDisplay = ref(null);
+const modalRef = ref(null);
+const triggerRef = ref(null);
+
+// Trap focus within the modal
+function trapFocus(event) {
+  if (!isModalOpen.value || !modalRef.value) return;
+
+  const focusableElements = modalRef.value.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+
+  // If shift + tab pressed and focus is on first element, move to last
+  if (event.shiftKey && document.activeElement === firstElement) {
+    lastElement.focus();
+    event.preventDefault();
+  }
+  // If tab pressed and focus is on last element, move to first
+  else if (!event.shiftKey && document.activeElement === lastElement) {
+    firstElement.focus();
+    event.preventDefault();
+  }
+}
+
+// Modal control methods
+function openModal() {
+  isModalOpen.value = true;
+
+  // Add event listeners for accessibility
+  document.addEventListener("keydown", handleKeyDown);
+
+  // Focus the first focusable element when modal opens
+  setTimeout(() => {
+    const focusableElements = modalRef.value?.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusableElements && focusableElements.length > 0) {
+      focusableElements[0].focus();
+    }
+
+    // Set aria-hidden on all elements outside the modal
+    document
+      .querySelectorAll("#app > *:not(.settings-modal-container)")
+      .forEach((el) => {
+        el.setAttribute("aria-hidden", "true");
+      });
+  }, 50);
+}
+
+function closeModal() {
+  isModalOpen.value = false;
+  document.removeEventListener("keydown", handleKeyDown);
+
+  // Restore focus to the trigger button
+  if (triggerRef.value) {
+    triggerRef.value.focus();
+  }
+
+  // Remove aria-hidden from all elements
+  document.querySelectorAll('[aria-hidden="true"]').forEach((el) => {
+    el.removeAttribute("aria-hidden");
+  });
+}
+
+function handleKeyDown(e) {
+  // Handle Escape key
+  if (e.key === "Escape") {
+    closeModal();
+  }
+  // Handle Tab key for focus trapping
+  else if (e.key === "Tab") {
+    trapFocus(e);
+  }
+}
+
+// Clean up event listeners
+onBeforeUnmount(() => {
+  document.removeEventListener("keydown", handleKeyDown);
+  // Remove any lingering aria-hidden attributes
+  document.querySelectorAll('[aria-hidden="true"]').forEach((el) => {
+    el.removeAttribute("aria-hidden");
+  });
+});
+
+// Update methods
+function saveSettings() {
+  emit("update:apiUrl", apiUrl.value);
+  emit("update:gridWidth", parseInt(gridWidth.value));
+  emit("update:gridHeight", parseInt(gridHeight.value));
+  closeModal();
+}
+
+function copyPreset() {
+  if (!jsonDisplay.value) return;
+
+  const textToCopy = jsonDisplay.value.innerText;
+
+  if (navigator.clipboard && window.isSecureContext) {
+    // Modern approach with clipboard API (secure contexts)
+    navigator.clipboard
+      .writeText(textToCopy)
+      .then(() => {
+        copied.value = true;
+        setTimeout(() => (copied.value = false), 2000);
+      })
+      .catch(() => {
+        copyFailed.value = true;
+        setTimeout(() => (copyFailed.value = false), 2000);
+      });
+  } else {
+    // Fallback for older browsers or non-secure contexts
+    const textarea = document.createElement("textarea");
+    textarea.value = textToCopy;
+    textarea.setAttribute("aria-hidden", "true");
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    try {
+      document.execCommand("copy");
+      copied.value = true;
+      setTimeout(() => (copied.value = false), 2000);
+    } catch (err) {
+      copyFailed.value = true;
+      setTimeout(() => (copyFailed.value = false), 2000);
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
+}
+
+// Watch for prop changes
+watch(
+  () => props.apiUrl,
+  (newValue) => {
+    apiUrl.value = newValue;
+  }
+);
+
+watch(
+  () => props.gridWidth,
+  (newValue) => {
+    gridWidth.value = newValue;
+  }
+);
+
+watch(
+  () => props.gridHeight,
+  (newValue) => {
+    gridHeight.value = newValue;
+  }
+);
+</script>
+
+<template>
+  <div class="w-full">
+    <!-- Settings button -->
+    <button
+      ref="triggerRef"
+      @click="openModal"
+      class="settings-button flex items-center justify-center py-2 px-4 text-base bg-gray-200 text-gray-800 rounded border-none cursor-pointer transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+      title="Settings"
+      aria-haspopup="dialog"
+      aria-expanded="false"
+    >
+      <Cog class="size-5" />
+    </button>
+
+    <!-- Accessible Modal Dialog -->
+    <div
+      v-if="isModalOpen"
+      class="settings-modal-container fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-4"
+      role="presentation"
+    >
+      <!-- Modal dialog -->
+      <dialog
+        ref="modalRef"
+        open
+        class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto m-0 p-0"
+        role="dialog"
+        aria-labelledby="modal-title"
+        aria-modal="true"
+      >
+        <!-- Modal header -->
+        <header
+          class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700"
+        >
+          <h2
+            id="modal-title"
+            class="text-lg font-semibold text-gray-900 dark:text-white"
+          >
+            WLED Matrix Settings
+          </h2>
+          <button
+            @click="closeModal"
+            class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full p-1"
+            aria-label="Close dialog"
+          >
+            <X class="w-5 h-5" />
+          </button>
+        </header>
+
+        <!-- Modal body -->
+        <div class="p-6 space-y-6">
+          <!-- API URL -->
+          <div class="space-y-2">
+            <label
+              for="wled-url"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              WLED API URL
+            </label>
+            <div class="mt-1 flex rounded-md shadow-sm">
+              <input
+                type="text"
+                id="wled-url"
+                v-model="apiUrl"
+                placeholder="http://your-wled-ip/json"
+                class="flex-1 py-2 px-3 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                aria-describedby="url-description"
+              />
+            </div>
+            <p
+              id="url-description"
+              class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+            >
+              The JSON API endpoint of your WLED device
+            </p>
+          </div>
+
+          <!-- Matrix Dimensions -->
+          <fieldset class="space-y-3">
+            <legend
+              class="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Matrix Dimensions
+            </legend>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <label
+                  for="grid-width"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Width
+                </label>
+                <input
+                  type="number"
+                  id="grid-width"
+                  v-model.number="gridWidth"
+                  min="1"
+                  max="100"
+                  inputmode="numeric"
+                  class="w-full py-2 px-3 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  aria-describedby="width-description"
+                />
+                <p id="width-description" class="sr-only">
+                  Width of the LED matrix in pixels
+                </p>
+              </div>
+              <div class="space-y-2">
+                <label
+                  for="grid-height"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Height
+                </label>
+                <input
+                  type="number"
+                  id="grid-height"
+                  v-model.number="gridHeight"
+                  min="1"
+                  max="100"
+                  inputmode="numeric"
+                  class="w-full py-2 px-3 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  aria-describedby="height-description"
+                />
+                <p id="height-description" class="sr-only">
+                  Height of the LED matrix in pixels
+                </p>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- JSON Preview -->
+          <section class="space-y-2" aria-labelledby="json-title">
+            <div class="flex items-center justify-between">
+              <h3
+                id="json-title"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                JSON Preset
+              </h3>
+              <button
+                @click="copyPreset"
+                class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-900 dark:text-blue-100 dark:hover:bg-blue-800"
+                title="Copy to clipboard"
+                aria-label="Copy JSON preset to clipboard"
+              >
+                <Copy v-if="!copied" class="w-4 h-4 mr-1" />
+                <Check v-else class="w-4 h-4 mr-1" />
+                <span v-if="!copied">Copy</span>
+                <span v-else>Copied!</span>
+              </button>
+            </div>
+            <div class="relative">
+              <pre
+                ref="jsonDisplay"
+                class="p-3 bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto text-xs font-mono"
+                aria-label="JSON preset code"
+                tabindex="0"
+              >
+                test
+                <!-- {{ wledJson }} -->
+                </pre>
+            </div>
+            <p
+              v-if="copyFailed"
+              class="text-xs text-red-600 dark:text-red-400"
+              role="alert"
+            >
+              Failed to copy text. Please try copying manually.
+            </p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+              You can copy this JSON to manually create a preset in the WLED UI.
+            </p>
+          </section>
+        </div>
+
+        <!-- Modal footer -->
+        <footer
+          class="flex items-center justify-end p-4 border-t border-gray-200 dark:border-gray-700 gap-2"
+        >
+          <button
+            @click="closeModal"
+            class="py-2 px-4 text-sm bg-gray-200 text-gray-800 rounded border-none cursor-pointer transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          >
+            Cancel
+          </button>
+          <button
+            @click="saveSettings"
+            class="py-2 px-4 text-sm bg-blue-500 text-white rounded border-none cursor-pointer transition-colors hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 inline-flex items-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Save class="w-4 h-4 mr-1" />
+            Save Changes
+          </button>
+        </footer>
+      </dialog>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* Ensure dialog behaves properly in browsers that support it */
+dialog {
+  position: relative;
+  border: none;
+  border-radius: 0.5rem;
+}
+
+/* Focus styles for accessibility */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Make the overlay more transparent */
+.settings-modal-container {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Add animation for modal */
+dialog {
+  animation: modal-appear 0.2s ease-out;
+}
+
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+</style>

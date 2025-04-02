@@ -1,36 +1,69 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
+
     <!-- Favicon -->
-    <link rel="apple-touch-icon" sizes="152x152" href="/favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
-    <link rel="manifest" href="/favicon/site.webmanifest">
-    <link rel="mask-icon" href="/favicon/safari-pinned-tab.svg" color="#0094ff">
-    <meta name="msapplication-TileColor" content="#0094ff">
-    <meta name="theme-color" content="#0094ff">
-    
+    <link
+      rel="apple-touch-icon"
+      sizes="152x152"
+      href="/favicon/apple-touch-icon.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/favicon/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/favicon/favicon-16x16.png"
+    />
+    <link rel="manifest" href="/favicon/site.webmanifest" />
+    <link
+      rel="mask-icon"
+      href="/favicon/safari-pinned-tab.svg"
+      color="#0094ff"
+    />
+    <meta name="msapplication-TileColor" content="#0094ff" />
+    <meta name="theme-color" content="#0094ff" id="theme-color" />
+
     <!-- Meta Tags -->
     <title>WLED Draw Something</title>
-    <meta name="description" content="A pixel art tool that allows you to draw something and see it live update in your WLED 2D Matrix">
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:url" content="https://mvaneijgen.nl/wled-draw-something/">
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="WLED Draw Something">
-    <meta property="og:description" content="A pixel art tool that allows you to draw something and see it live update in your WLED 2D Matrix">
-    
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary">
-    <meta property="twitter:domain" content="mvaneijgen.nl">
-    <meta property="twitter:url" content="https://mvaneijgen.nl/wled-draw-something/">
-    <meta name="twitter:title" content="WLED Draw Something">
-    <meta name="twitter:description" content="A pixel art tool that allows you to draw something and see it live update in your WLED 2D Matrix">
+    <meta
+      name="description"
+      content="A pixel art tool that allows you to draw something and see it live update in your WLED 2D Matrix"
+    />
+
+    <!-- Dark mode script (prevent flash of light mode) -->
+    <script>
+      // Check for saved theme preference or use the system preference
+      const userTheme = localStorage.getItem("darkMode");
+      const systemTheme = window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+
+      // If the user has explicitly chosen a theme, use that
+      if (userTheme === "true") {
+        document.documentElement.classList.add("dark");
+        document
+          .getElementById("theme-color")
+          .setAttribute("content", "#121212");
+      } else if (userTheme === "false") {
+        document.documentElement.classList.remove("dark");
+        // If no explicit choice, but system prefers dark
+      } else if (systemTheme) {
+        document.documentElement.classList.add("dark");
+        document
+          .getElementById("theme-color")
+          .setAttribute("content", "#121212");
+      }
+    </script>
   </head>
-  <body>
+  <body class="bg-gray-50 dark:bg-dark-primary transition-colors duration-200">
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

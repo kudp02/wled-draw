@@ -1,12 +1,13 @@
-import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
-import { resolve } from 'path';
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
+import { resolve } from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), tailwindcss()],
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: true,
     minify: true,
     // Create a single file build as much as possible
@@ -14,21 +15,21 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Reduce chunking
-        manualChunks: () => 'app.js',
-        entryFileNames: 'assets/[name].js',
-        chunkFileNames: 'assets/[name].js',
+        manualChunks: () => "app.js",
+        entryFileNames: "assets/[name].js",
+        chunkFileNames: "assets/[name].js",
         assetFileNames: (assetInfo) => {
-          if (assetInfo.name.endsWith('.css')) {
-            return 'assets/style.css';
+          if (assetInfo.name.endsWith(".css")) {
+            return "assets/style.css";
           }
-          return 'assets/[name].[ext]';
-        }
-      }
-    }
+          return "assets/[name].[ext]";
+        },
+      },
+    },
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
-    }
-  }
-})
+      "@": resolve(__dirname, "src"),
+    },
+  },
+});

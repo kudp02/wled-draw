@@ -9,10 +9,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.5.13"
+    "@tailwindcss/vite": "^4.0.16",
+    "dgram": "^1.0.1",
+    "lucide-vue-next": "^0.484.0",
+    "vue": "^3.5.13",
+    "wled-client": "^0.22.1",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
+    "autoprefixer": "^10.4.21",
+    "tailwindcss": "^4.0.16",
+    "typescript": "^5.8.2",
     "vite": "^6.2.0"
-  }
+  },
+  "packageManager": "pnpm@9.12.2+sha512.22721b3a11f81661ae1ec68ce1a7b879425a1ca5b991c975b074ac220b187ce56c708fe5db69f4c962c989452eee76c82877f4ee80f474cebd61ee13461b6228"
 }
