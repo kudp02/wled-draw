@@ -2,22 +2,22 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
+import { viteSingleFile } from "vite-plugin-singlefile";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [vue(), tailwindcss()],
+  plugins: [
+    vue(),
+    tailwindcss(),
+    viteSingleFile(), // Add the singlefile plugin
+  ],
   build: {
     outDir: "dist",
     emptyOutDir: true,
     minify: true,
-    // Create a single file build as much as possible
     cssCodeSplit: false,
     rollupOptions: {
       output: {
-        // Reduce chunking
-        manualChunks: () => "app.js",
-        entryFileNames: "assets/[name].js",
-        chunkFileNames: "assets/[name].js",
         assetFileNames: (assetInfo) => {
           if (assetInfo.name.endsWith(".css")) {
             return "assets/style.css";
