@@ -2,7 +2,7 @@
 
 Turn your WLED 2D matrix into a pixel art canvas! This slick little web app lets you create, draw, and beam your designs straight to your LED matrix in real-time.
 
-![WLED Matrix Editor Demo](wled-matrix-editor.png)
+![WLED Matrix Editor Demo](public/wled-matrix-editor.png)
 
 ## ✨ Features
 
