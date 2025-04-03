@@ -2,6 +2,12 @@
   "name": "wled-draw-vue",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
+  "keywords": [
+    "wled",
+    "matrix",
+    "led"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,11 +16,8 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.16",
-    "dgram": "^1.0.1",
     "lucide-vue-next": "^0.484.0",
-    "vue": "^3.5.13",
-    "wled-client": "^0.22.1",
-    "ws": "^8.18.1"
+    "vue": "^3.5.13"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
