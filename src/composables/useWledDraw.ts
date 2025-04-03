@@ -23,6 +23,7 @@ export function useWledDraw() {
   const gridHeight = ref(20); // Matrix height (in pixels)
   const pixelData = ref<string[]>([]); // Holds color values for each pixel
   const currentColor = ref("#ff2500"); // Currently selected drawing color
+  const isInitializing = ref(true);
 
   // Default color palette
   const colorPalette = ref([
@@ -134,38 +135,31 @@ export function useWledDraw() {
   function setupGrid(): void {
     const gridSize = gridWidth.value * gridHeight.value;
 
-    // Clear the current pixel data
-    pixelData.value = [];
+    // Prepare new pixel data array
+    const newPixelData: string[] = [];
 
-    // Load from localStorage if available
+    // Only try to load from localStorage if we're not initializing
     let localData: string[] = [];
     if (localStorage.pixelData) {
       try {
         localData = localStorage.pixelData.split(",");
+        console.log(`Loaded ${localData.length} pixels from localStorage`);
       } catch (e) {
         console.error("Error loading from localStorage:", e);
       }
     }
 
     // Fill the grid with data from localStorage or default to black
+    // Make sure we handle mismatched array lengths
     for (let i = 0; i < gridSize; i++) {
-      pixelData.value.push(localData[i] || "#000000");
+      newPixelData.push(i < localData.length ? localData[i] : "#000000");
     }
+
+    // Set the pixel data all at once
+    pixelData.value = newPixelData;
 
     // Load history from localStorage
     loadHistoryFromStorage();
-
-    // Load debounce delay from localStorage
-    if (localStorage.debounceDelay) {
-      try {
-        const delay = Number(localStorage.debounceDelay);
-        if (!isNaN(delay) && delay >= 0) {
-          debounceDelay.value = delay;
-        }
-      } catch (e) {
-        console.error("Error loading debounce delay from localStorage:", e);
-      }
-    }
   }
 
   // Update a single pixel with a new color
@@ -286,9 +280,41 @@ export function useWledDraw() {
 
   // Apply an entire array of pixels (for gradients, images, etc.)
   function applyPixelArray(newPixels: string[]): void {
-    if (!newPixels.length || newPixels.length !== pixelData.value.length) {
-      console.error("Invalid pixel array length");
+    // Ensure we have some pixels to apply
+    if (!newPixels || newPixels.length === 0) {
+      console.warn("Empty pixel array - nothing to apply");
       return;
+    }
+
+    const expectedLength = gridWidth.value * gridHeight.value;
+
+    // Only show an error if we're not in initialization
+    if (newPixels.length !== expectedLength) {
+      console.warn(
+        `Pixel array length mismatch: got ${newPixels.length}, expected ${expectedLength}`
+      );
+
+      // If we're in initialization, just exit
+      if (loading.value) {
+        console.log("Skipping pixel array application during loading");
+        return;
+      }
+
+      // Adapt the array to match expected length
+      const adaptedPixels = [...newPixels];
+
+      if (adaptedPixels.length > expectedLength) {
+        // Truncate if too long
+        adaptedPixels.length = expectedLength;
+      } else if (adaptedPixels.length < expectedLength) {
+        // Pad with black if too short
+        while (adaptedPixels.length < expectedLength) {
+          adaptedPixels.push("#000000");
+        }
+      }
+
+      // Use the adapted array
+      newPixels = adaptedPixels;
     }
 
     // Save current state to history
@@ -367,8 +393,7 @@ export function useWledDraw() {
         loading.value = false;
         error.value = false;
 
-        // Setup grid with the new dimensions
-        setupGrid();
+        // REMOVED: setupGrid() call from here - the watcher will handle it
       })
       .catch((error) => {
         console.error("WLED API Error:", error);
@@ -412,20 +437,22 @@ export function useWledDraw() {
 
   // Load all settings from localStorage
   function loadFromLocalStorage(): void {
-    if (localStorage.currentColor) {
-      currentColor.value = localStorage.currentColor;
-    }
-
-    if (localStorage.colorPalette) {
-      colorPalette.value = localStorage.colorPalette.split(",");
-    }
-
+    // First, load the grid dimensions
     if (localStorage.gridWidth) {
       gridWidth.value = Number(localStorage.gridWidth);
     }
 
     if (localStorage.gridHeight) {
       gridHeight.value = Number(localStorage.gridHeight);
+    }
+
+    // Then load the other settings
+    if (localStorage.currentColor) {
+      currentColor.value = localStorage.currentColor;
+    }
+
+    if (localStorage.colorPalette) {
+      colorPalette.value = localStorage.colorPalette.split(",");
     }
 
     if (localStorage.debounceDelay) {
@@ -457,25 +484,42 @@ export function useWledDraw() {
 
   // Initialize the application
   function initialize(): void {
-    // Load settings from localStorage
+    isInitializing.value = true;
+
+    // First load settings including grid dimensions
     loadFromLocalStorage();
 
     // Set default API URL
     const defaultHost = "192.168.68.132";
     apiUrl.value = `http://${defaultHost}/json`;
 
+    // Setup grid with the dimensions we just loaded
+    setupGrid();
+
     // Setup keyboard shortcuts
     setupKeyboardShortcuts();
 
     // Fetch WLED information
     fetchWledInfo();
+
+    // Mark initialization as complete after a small delay
+    // This allows any watchers to complete their work
+    setTimeout(() => {
+      isInitializing.value = false;
+    }, 200);
   }
 
   // ===== WATCHERS =====
 
   // Watch for changes to grid dimensions and update the grid
   watch([gridWidth, gridHeight], () => {
-    setupGrid();
+    // Skip during initialization to avoid duplicate calls
+    if (!isInitializing.value) {
+      console.log(
+        `Grid dimensions changed to ${gridWidth.value}x${gridHeight.value} - updating grid`
+      );
+      setupGrid();
+    }
   });
 
   // Watch for changes to the API URL and fetch WLED info

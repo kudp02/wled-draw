@@ -29,8 +29,8 @@ const centerY = ref(50); // Center Y position (0-100%)
 const ellipticalRotation = ref(0); // Rotation for elliptical gradients (0-360°)
 const scaleValue = ref(100); // Scale percentage (zoom level)
 const colorStops = ref<ColorStop[]>([
-  { color: "#FF3300", position: 9 },
-  { color: "#FFB005", position: 24 },
+  { color: "#FF3300", position: 0 },
+  { color: "#FFB005", position: 100 },
 ]);
 
 // Local storage keys
